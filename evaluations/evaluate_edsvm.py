@@ -363,18 +363,7 @@ def main():
     with open(result_path, 'w') as f:
         json.dump(result, f, separators=(',', ':'))
 
-            
-
-
-
-    ## Semantic Drift
-
-    ### AUC
-
-    ### F
-
-
-    ## Noisy Drift
+    
 
 
 
