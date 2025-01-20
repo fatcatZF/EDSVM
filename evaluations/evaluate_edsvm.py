@@ -87,6 +87,9 @@ def main():
         result[f"edsvm_{i}"] = dict() 
 
     # Run the evaluations
+    auc_semantic_values = []
+    auc_noise_values = []
+
     for i, model in enumerate(loaded_models):
         for j in range(args.n_exp_per_model):
 
@@ -178,12 +181,18 @@ def main():
             auc_semantic = roc_auc_score(y_semantic, scores_semantic)
             auc_noise = roc_auc_score(y_noise, scores_noise)
 
+            auc_semantic_values.append(auc_semantic)
+            auc_noise_values.append(auc_noise)
+
             result[f"edsvm_{i}"][f"exp_{j}"] = {"scores_semantic":scores_semantic.tolist(),
                                                      "auc_semantic":auc_semantic,
                                                      "scores_noise":scores_noise.tolist(),
                                                      "auc_noise":auc_noise}
             
     
+    result["auc_semantic_mean"] = np.mean(auc_semantic_values)
+    result["auc_noise_mean"] = np.mean(auc_noise_values)
+
     result_folder = os.path.join('.',"results", args.env)
     if not os.path.exists(result_folder):
         os.makedirs(result_folder) 
