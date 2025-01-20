@@ -89,6 +89,23 @@ def main():
     # Run the evaluations
     auc_semantic_values = []
     auc_noise_values = []
+    
+    ph_delays_semantic = []
+    ph_fas_semantic = []
+    ph_delays_noise = []
+    ph_fas_noise = []
+    ad_delays_semantic = []
+    ad_fas_semantic []
+    ad_delays_noise = []
+    ad_fas_noise []
+    ks_delays_semantic = []
+    ks_fas_semantic = []
+    ks_delays_noise = []
+    ks_fas_noise = []
+    delays_semantic = []
+    fas_semantic = []
+    delays_noise = []
+    fas_noise = []
 
     for i, model in enumerate(loaded_models):
         for j in range(args.n_exp_per_model):
@@ -183,6 +200,120 @@ def main():
 
             auc_semantic_values.append(auc_semantic)
             auc_noise_values.append(auc_noise)
+            
+            # Page-Hinkley 
+            ## Semantic
+            ph = drift.PageHinkley(mode="up", delta=0.005)
+            fa = 0
+            delay = args.env2_steps+1000
+            for t, val in enumerate(scores_semantic):
+                ph.update(val)
+                if ph.drift_detected and val>0:
+                    if t < args.env1_steps:
+                        fa += 1
+                    if t >= args.env1_steps:
+                        delay = t - args.env1_steps
+                        break 
+
+            ph_delays_semantic.append(delay)
+            ph_fas_semantic.append(fa)
+            delays_semantic.append(delay)
+            fas_semantic.append(fa)
+
+            ## Noise
+            ph = drift.PageHinkley(mode="up", delta=0.005)
+            fa = 0
+            delay = args.env3_steps+1000
+            for t, val in enumerate(scores_noise):
+                ph.update(val)
+                if ph.drift_detected and val>0:
+                    if t < args.env1_steps:
+                        fa += 1
+                    if t >= args.env1_steps:
+                        delay = t - args.env1_steps
+                        break 
+
+            ph_delays_noise.append(delay)
+            ph_fas_noise.append(fa)
+            delays_noise.append(delay)
+            fas_noise.append(fa)
+
+
+            #ADWIN
+            ## Semantic
+            adwin = drift.ADWIN()
+            fa = 0
+            delay = args.env2_steps+1000
+            for t, val in enumerate(scores_semantic):
+                adwin.update(val)
+                if adwin.drift_detected and val>0:
+                    if t<args.env1_steps:
+                       fa+=1
+                    if t>=args.env1_steps:
+                       delay = t-args.env1_steps
+                       break
+            
+            ad_delays_semantic.append(delay)
+            ad_fas_semantic.append(fa)
+            delays_semantic.append(delay)
+            fas_semantic.append(fa)
+
+            ## Noise
+            adwin = drift.ADWIN()
+            fa = 0
+            delay = args.env3_steps+1000
+            for t, val in enumerate(scores_noise):
+                adwin.update(val)
+                if adwin.drift_detected and val>0:
+                    if t<args.env1_steps:
+                       fa+=1
+                    if t>=args.env1_steps:
+                       delay = t-args.env1_steps
+                       break
+            
+            ad_delays_noise.append(delay)
+            ad_fas_noise.append(fa)
+            delays_noise.append(delay)
+            fas_noise.append(fa)
+
+
+            # KSWIN
+            ## Semantic
+            kswin = drift.KSWIN(window=scores_validation)
+            fa = 0
+            delay = args.env2_steps+1000
+            for t, val in enumerate(scores_semantic):
+                kswin.update(val)
+                if kswin.drift_detected and val>0:
+                    if t < args.env1_steps:
+                        fa += 1
+                    if t >= args.env1_steps:
+                        delay = t - args.env1_steps
+
+            ks_delays_semantic.append(delay)
+            ks_fas_semantic.append(fa)
+            delays_semantic.append(delay)
+            fas_semantic.append(fa)
+
+            ## Noise
+            kswin = drift.KSWIN(window=scores_validation)
+            fa = 0
+            delay = args.env3_steps+1000
+            for t, val in enumerate(scores_noise):
+                kswin.update(val)
+                if kswin.drift_detected and val>0:
+                    if t < args.env1_steps:
+                        fa += 1
+                    if t >= args.env1_steps:
+                        delay = t - args.env1_steps
+
+            ks_delays_noise.append(delay)
+            ks_fas_noise.append(fa)
+            delays_noise.append(delay)
+            fas_noise.append(fa)
+
+
+
 
             result[f"edsvm_{i}"][f"exp_{j}"] = {"scores_semantic":scores_semantic.tolist(),
                                                      "auc_semantic":auc_semantic,
@@ -192,6 +323,28 @@ def main():
     
     result["auc_semantic_mean"] = np.mean(auc_semantic_values)
     result["auc_noise_mean"] = np.mean(auc_noise_values)
+
+    result["ph_delays_semantic_mean"] = np.mean(ph_delays_semantic)
+    result["ph_delays_noise_mean"] = np.mean(ph_delays_noise)
+    result["ph_fas_semantic_mean"] = np.mean(ph_fas_semantic)
+    result["ph_fas_noise_mean"] = np.mean(ph_fas_noise)
+
+    result["ad_delays_semantic_mean"] = np.mean(ad_delays_semantic)
+    result["ad_delays_noise_mean"] = np.mean(ad_delays_noise)
+    result["ad_fas_semantic_mean"] = np.mean(ad_fas_semantic)
+    result["ad_fas_noise_mean"] = np.mean(ad_fas_noise)
+
+    result["ks_delays_semantic_mean"] = np.mean(ks_delays_semantic)
+    result["ks_delays_noise_mean"] = np.mean(ks_delays_noise)
+    result["ks_fas_semantic_mean"] = np.mean(ks_fas_semantic)
+    result["ks_fas_noise_mean"] = np.mean(ks_fas_noise)
+
+    result["delays_semantic_mean"] = np.mean(delays_semantic)
+    result["delays_noise_mean"] = np.mean(delays_noise)
+    result["fas_semantic_mean"] = np.mean(fas_semantic)
+    result["fas_noise_mean"] = np.mean(fas_noise)
+
+
 
     result_folder = os.path.join('.',"results", args.env)
     if not os.path.exists(result_folder):
