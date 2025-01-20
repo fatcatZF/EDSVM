@@ -86,9 +86,123 @@ def main():
     for i in range(len(loaded_models)):
         result[f"edsvm_{i}"] = dict() 
 
-    
+    # Run the evaluations
+    for i, model in enumerate(loaded_models):
+        for j in range(args.n_exp_per_model):
 
-    ## Validation Steps
+            # Validation
+            scores_validation = []
+            env_current = env0 
+            obs_t, _ = env_current.reset()
+            for t in range(1, args.env0_steps+1):
+                action_t, _state = agent.predict(obs_t, deterministic=True)
+                obs_tplus1, r_tplus1, terminated, truncated, info = env_current.step(action_t)
+                transition = np.concatenate([obs_t, obs_tplus1-obs_t]).reshape(1,-1)
+                x = np.concatenate([transition, action_t.reshape(1,-1)], axis=1)
+                score = -model.decision_function(x)[0] # Anomaly Score
+                scores_validation.append(score) 
+                done = terminated or truncated
+                obs_t = obs_tplus1
+                if done:
+                    obs_t, _ = env_current.reset()
+            scores_validation = np.array(scores_validation)
+
+            mu_valid = np.mean(scores_validation)
+            sigma_valid = np.std(scores_validation)
+
+
+            # Semantic Drift (env1, env2)
+            scores_semantic = []
+            env_current = env1 
+            obs_t, _ = env_current.reset()
+            total_steps = args.env1_steps + args.env2_steps
+            for t in range(1, total_steps+1):
+                if t%1000 == 0:
+                    print(f"model {i}, experiment {j}, step {t}")
+                action_t, _state = agent.predict(obs_t, deterministic=True)
+                obs_tplus1, r_tplus1, terminated, truncated, info = env_current.step(action_t)
+                transition = np.concatenate([obs_t, obs_tplus1-obs_t]).reshape(1,-1)
+                x = np.concatenate([transition, action_t.reshape(1,-1)], axis=1)
+                score = -model.decision_function(x)[0] # Anomaly Score
+                scores_semantic.append(score) 
+
+                done = terminated or truncated
+
+                obs_t = obs_tplus1
+                if done:
+                    obs_t, _ = env_current.reset()
+                if t==args.env1_steps: ## Environment Drift happens 
+                    env_current = env2 
+                    obs_t, _ = env_current.reset() 
+            
+            scores_semantic = np.array(scores_semantic) 
+
+
+            # Noisy Drift (env1, env3)
+            scores_noise = []
+            env_current = env1 
+            obs_t, _ = env_current.reset()
+            total_steps = args.env1_steps + args.env3_steps
+            for t in range(1, total_steps+1):
+                if t%1000 == 0:
+                    print(f"model {i}, experiment {j}, step {t}")
+                action_t, _state = agent.predict(obs_t, deterministic=True)
+                obs_tplus1, r_tplus1, terminated, truncated, info = env_current.step(action_t)
+                transition = np.concatenate([obs_t, obs_tplus1-obs_t]).reshape(1,-1)
+                x = np.concatenate([transition, action_t.reshape(1,-1)], axis=1)
+                score = -model.decision_function(x)[0] # Anomaly Score
+                scores_noise.append(score) 
+
+                done = terminated or truncated
+
+                obs_t = obs_tplus1
+                if done:
+                    obs_t, _ = env_current.reset()
+                if t==args.env1_steps: ## Environment Drift happens 
+                    env_current = env3 
+                    obs_t, _ = env_current.reset() 
+            
+            scores_noise = np.array(scores_noise) 
+
+            scores_validation = (scores_validation-mu_valid)/sigma_valid
+            scores_semantic = (scores_semantic-mu_valid)/sigma_valid
+            scores_noise = (scores_noise-mu_valid)/sigma_valid
+
+            # Compute AUC
+            y_env1 = np.zeros(3000)
+            y_env2 = np.ones(3000)
+            y_env3 = np.ones(3000)
+            y_semantic = np.concatenate([y_env1, y_env2])
+            y_noise = np.concatenate([y_env1, y_env3])
+
+            auc_semantic = roc_auc_score(y_semantic, scores_semantic)
+            auc_noise = roc_auc_score(y_noise, scores_noise)
+
+            result[f"edsvm_{i}"][f"exp_{j}"] = {"scores_semantic":scores_semantic.tolist(),
+                                                     "auc_semantic":auc_semantic,
+                                                     "scores_noise":scores_noise.tolist(),
+                                                     "auc_noise":auc_noise}
+            
+    
+    result_folder = os.path.join('.',"results", args.env)
+    if not os.path.exists(result_folder):
+        os.makedirs(result_folder) 
+
+    print("results folder", result_folder)
+
+    result_file = f"edsvm-{args.env}.json"
+
+    print("result file: ", result_file)
+
+    result_path = os.path.join(result_folder, result_file)
+
+    print("result path: ", result_path) 
+
+    with open(result_path, 'w') as f:
+        json.dump(result, f, separators=(',', ':'))
+
+            
+
 
 
     ## Semantic Drift
