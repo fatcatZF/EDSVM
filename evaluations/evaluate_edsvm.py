@@ -95,9 +95,9 @@ def main():
     ph_delays_noise = []
     ph_fas_noise = []
     ad_delays_semantic = []
-    ad_fas_semantic []
+    ad_fas_semantic = []
     ad_delays_noise = []
-    ad_fas_noise []
+    ad_fas_noise = []
     ks_delays_semantic = []
     ks_fas_semantic = []
     ks_delays_noise = []
@@ -279,7 +279,7 @@ def main():
 
             # KSWIN
             ## Semantic
-            kswin = drift.KSWIN(window=scores_validation)
+            kswin = drift.KSWIN(window=scores_validation.tolist())
             fa = 0
             delay = args.env2_steps+1000
             for t, val in enumerate(scores_semantic):
@@ -296,7 +296,7 @@ def main():
             fas_semantic.append(fa)
 
             ## Noise
-            kswin = drift.KSWIN(window=scores_validation)
+            kswin = drift.KSWIN(window=scores_validation.tolist())
             fa = 0
             delay = args.env3_steps+1000
             for t, val in enumerate(scores_noise):
