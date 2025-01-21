@@ -4,11 +4,13 @@ import json
 
 import numpy as np 
 
+
 from sklearn.metrics import roc_auc_score
 
 import torch 
 import torch.nn as nn 
 import torch.nn.functional as F 
+from torch.distributions.multivariate_normal import MultivariateNormal
 
 from torchensemble import BaggingRegressor
 from torchensemble.utils import io 
@@ -112,6 +114,172 @@ def main():
 
     print(f"Number of trained models: {len(loaded_models)}")
 
+    ## Create environments
+    env0, env1, env2, env3 = make_env(name=args.env)
+    print("Successfully create environments")
+
+    result = dict()
+    for i in range(len(loaded_models)):
+        result[f"pedm_{i}"] = dict()
+
+    ## Run the evaluations
+    auc_semantic_values = []
+    auc_noise_values = []
+
+    for i, model in enumerate(loaded_models):
+        for j in range(args.n_exp_per_model):
+           
+           # Validation
+            X_val = []
+            y_val = []
+            env_current = env0 
+            obs_t, _ = env_current.reset()
+            for t in range(1, args.env0_steps+1):
+                action_t, _state = agent.predict(obs_t, deterministic=True)
+                obs_tplus1, r_tplus1, terminated, truncated, info = env_current.step(action_t)
+
+                X_val.append(np.concatenate((obs_t, action_t.reshape(-1))))
+                y_val.append(obs_tplus1-obs_t)
+                done = terminated or truncated
+
+                obs_t = obs_tplus1
+
+                if done: 
+                    obs_t, _ = env_current.reset()
+
+            X_val = np.array(X_val)
+            y_val = np.array(y_val) 
+            X_val_tensor = torch.from_numpy(X_val).float() #shape: [batch_size, x_dim]
+            y_val_tensor = torch.from_numpy(y_val).float() 
+
+            with torch.no_grad():
+               output = pedm(X_val_tensor)
+               dim = output.shape[-1] // 2
+               mu, var = output[:, :dim], output[:, dim:] #shape: [batch_size, n_features]
+               cov = torch.diag_embed(var) # shape: [batch_size, n_features, n_features]
+               distrib = MultivariateNormal(loc=mu, covariance_matrix=cov)
+               sampled_predictions = distrib.rsample(sample_shape=torch.Size([200]))
+               # shape: [200, batch_size, n_features]
+               mses = ((sampled_predictions-y_val_tensor)**2).mean(dim=-1).mean(dim=0) #shape[batch_size]
+               mu_val = mses.mean().detach().numpy()
+               std_val = mses.std().detach().numpy()
+            
+            
+            # Semantic Drift
+            X = []
+            y = []
+            env_current = env1 
+            obs_t, _ = env_current.reset()
+            total_steps = args.env1_steps + args.env2_steps
+            for t in range(1, total_steps+1):
+                if t%1000 == 0:
+                    print(f"step: {t}")
+                action_t, _state = agent.predict(obs_t, deterministic=True)
+                obs_tplus1, r_tplus1, terminated, truncated, info = env_current.step(action_t)
+
+                X.append(np.concatenate((obs_t, action_t.reshape(-1))))
+                y.append(obs_tplus1-obs_t)
+                done = terminated or truncated
+
+                obs_t = obs_tplus1
+
+                if done: 
+                    obs_t, _ = env_current.reset()
+                if t==args.env1_steps:
+                   env_current = env2
+                   obs_t, _ = env_current.reset()
+
+            X = np.array(X)
+            y = np.array(y)
+            X_tensor = torch.from_numpy(X).float()
+            y_tensor = torch.from_numpy(y).float()
+            with torch.no_grad():
+               output = pedm(X_tensor)
+               dim = output.shape[-1] // 2
+               mu, var = output[:, :dim], output[:, dim:] #shape: [batch_size, n_features]
+               cov = torch.diag_embed(var) # shape: [batch_size, n_features, n_features]
+               distrib = MultivariateNormal(loc=mu, covariance_matrix=cov)
+               sampled_predictions = distrib.rsample(sample_shape=torch.Size([200]))
+               # shape: [200, batch_size, n_features]
+               mses = ((sampled_predictions-y_tensor)**2).mean(dim=-1).mean(dim=0) #shape[batch_size]
+            
+            scores_semantic = (mses.detach().numpy()-mu_val)/std_val   
+            y_env1 = np.zeros(args.env1_steps)
+            y_env2 = np.ones(args.env2_steps)
+            y = np.concatenate([y_env1, y_env2])
+            auc_semantic = roc_auc_score(y, scores_semantic)
+            auc_semantic_values.append(auc_semantic)
+
+
+            # Noise Drift
+            X = []
+            y = []
+            env_current = env1 
+            obs_t, _ = env_current.reset()
+            total_steps = args.env1_steps + args.env3_steps
+            for t in range(1, total_steps+1):
+                if t%1000 == 0:
+                    print(f"step: {t}")
+                action_t, _state = agent.predict(obs_t, deterministic=True)
+                obs_tplus1, r_tplus1, terminated, truncated, info = env_current.step(action_t)
+
+                X.append(np.concatenate((obs_t, action_t.reshape(-1))))
+                y.append(obs_tplus1-obs_t)
+                done = terminated or truncated
+
+                obs_t = obs_tplus1
+
+                if done: 
+                    obs_t, _ = env_current.reset()
+                if t==args.env1_steps:
+                   env_current = env3
+                   obs_t, _ = env_current.reset()
+
+            X = np.array(X)
+            y = np.array(y)
+            X_tensor = torch.from_numpy(X).float()
+            y_tensor = torch.from_numpy(y).float()
+            with torch.no_grad():
+               output = pedm(X_tensor)
+               dim = output.shape[-1] // 2
+               mu, var = output[:, :dim], output[:, dim:] #shape: [batch_size, n_features]
+               cov = torch.diag_embed(var) # shape: [batch_size, n_features, n_features]
+               distrib = MultivariateNormal(loc=mu, covariance_matrix=cov)
+               sampled_predictions = distrib.rsample(sample_shape=torch.Size([200]))
+               # shape: [200, batch_size, n_features]
+               mses = ((sampled_predictions-y_tensor)**2).mean(dim=-1).mean(dim=0) #shape[batch_size]
+            
+            scores_noise = (mses.detach().numpy()-mu_val)/std_val   
+            y_env1 = np.zeros(args.env1_steps)
+            y_env3 = np.ones(args.env2_steps)
+            y = np.concatenate([y_env1, y_env3])
+            auc_noise = roc_auc_score(y, scores_noise)
+            auc_noise_values.append(auc_noise)
+
+            result[f"pedm_{i}"][f"exp_{j}"] = {"scores_semantic":scores_semantic.tolist(),
+                                                     "auc_semantic":auc_semantic,
+                                                     "scores_noise":scores_noise.tolist(),
+                                                     "auc_noise":auc_noise}
+    
+    result["auc_semantic_mean"] = np.mean(auc_semantic_values)
+    result["auc_noise_mean"] = np.mean(auc_noise_values)
+
+    result_folder = os.path.join('.',"results", args.env)
+    if not os.path.exists(result_folder):
+        os.makedirs(result_folder) 
+    
+    print("results folder", result_folder)
+    result_file = f"pedm-{args.env}.json"
+
+    print("result file: ", result_file)
+
+    result_path = os.path.join(result_folder, result_file)
+
+    print("result path: ", result_path) 
+
+    with open(result_path, 'w') as f:
+        json.dump(result, f, separators=(',', ':'))
+           
 
 
 if __name__ == "__main__":
