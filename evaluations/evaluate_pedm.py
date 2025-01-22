@@ -34,6 +34,8 @@ def main():
     parser.add_argument("--env3-steps", type=int, default=3000, help="Noisy Drift Steps")
     parser.add_argument("--n-exp-per-model", type=int, default=10, 
                         help="number of experiments of each trained model.") 
+    parser.add_argument("--hidden-dim", type=int, default=500, 
+                        help="number of experiments of each trained model.") 
 
     args = parser.parse_args() 
 
@@ -73,7 +75,7 @@ def main():
     else:
        action_dim = 1
     class BaseNN(nn.Module):
-      def __init__(self, input_dim=obs_dim+action_dim, hidden_dim=500, 
+      def __init__(self, input_dim=obs_dim+action_dim, hidden_dim=args.hidden_dim, 
                    output_dim=obs_dim):
         super(BaseNN, self).__init__()
         self.fc1 = nn.Linear(input_dim, hidden_dim)
