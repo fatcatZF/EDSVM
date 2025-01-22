@@ -18,6 +18,33 @@ import argparse
 
 from river import drift 
 
+def compute_ph_auc(y, score):
+    score_cumsum = np.cumsum(score)
+    return roc_auc_score(y, score_cumsum)
+
+
+
+def compute_adwin_auc(y, score):
+     indicators = []
+     sliding_window = []
+
+     for t, x_t in enumerate(score):
+        sliding_window.append(x_t)
+        
+        # Apply ADWIN logic: split the window and calculate max |mu_w1-mu_w2|
+        best_split = 0
+        max_diff = 0
+
+        for split in range(1, len(sliding_window)):
+            W1 = sliding_window[:split]
+            W2 = sliding_window[split:]
+
+            mu_W1 = sum(W1) / len(W1)
+
+
+def compute_kswin_auc(y, score):
+    pass
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", type=str, default="cartpole", help="name of environment")
