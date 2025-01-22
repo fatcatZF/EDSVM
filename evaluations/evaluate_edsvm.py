@@ -40,6 +40,17 @@ def compute_adwin_auc(y, score):
             W2 = sliding_window[split:]
 
             mu_W1 = sum(W1) / len(W1)
+            mu_W2 = sum(W2) / len(W2)
+            diff = abs(mu_W1 - mu_W2)
+            if diff > max_diff:
+                best_split = split
+
+        indicators.append(max_diff)
+     
+     # Compute AUC
+     auc = roc_auc_score(y, indicators)
+     return auc 
+    
 
 
 def compute_kswin_auc(y, score):
