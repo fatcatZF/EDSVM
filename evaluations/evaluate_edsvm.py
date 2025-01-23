@@ -271,18 +271,24 @@ def main():
             auc_noise = roc_auc_score(y_noise, scores_noise)
 
             auc_semantic_ph = compute_ph_auc(y_semantic, scores_semantic)
+            print(f"AUC Semantic Ph: {auc_semantic_ph}")
             auc_semantic_ad = compute_adwin_auc(y_semantic, scores_semantic)
+            print(f"AUC Semantic ADWIN: {auc_semantic_ad}")
             auc_semantic_ks = compute_kswin_auc(y_semantic, scores_semantic, 
                                 scores_validation)
+            print(f"AUC Semantic KS: {auc_semantic_ks}")
 
             auc_semantic_values_ph.append(auc_semantic_ph)
             auc_semantic_values_ad.append(auc_semantic_ad)
             auc_semantic_values_ks.append(auc_semantic_ks)
 
             auc_noise_ph = compute_ph_auc(y_noise, scores_noise)
+            print(f"AUC Noise Ph: {auc_noise_ph}")
             auc_noise_ad = compute_adwin_auc(y_noise, scores_noise)
+            print(f"AUC Noise ADWIN: {auc_noise_ad}")
             auc_noise_ks = compute_kswin_auc(y_noise, scores_noise,
                              scores_validation)
+            print(f"AUC Noise KS: {auc_noise_ks}")
             
             auc_noise_values_ph.append(auc_noise_ph)
             auc_noise_values_ad.append(auc_noise_ad)
