@@ -29,31 +29,37 @@ def compute_ph_auc(y, score):
 
 
 def compute_adwin_auc(y, score):
-     indicators = []
-     sliding_window = []
+    indicators = []
+    sliding_window = deque([], maxlen=200)  # Use deque for efficient sliding window operations
 
-     for t, x_t in enumerate(score):
+    for t, x_t in enumerate(score):
         sliding_window.append(x_t)
         
-        # Apply ADWIN logic: split the window and calculate max |mu_w1-mu_w2|
-        best_split = 0
+
+        # Compute max |mu_W1 - mu_W2| with incremental updates
+        total_sum = sum(sliding_window)
+        total_count = len(sliding_window)
+        running_sum_W1 = 0
         max_diff = 0
+        
+        for split in range(1, total_count):  # Incrementally compute W1 and W2
+            running_sum_W1 += sliding_window[split - 1]
+            running_count_W1 = split
+            mu_W1 = running_sum_W1 / running_count_W1
+            
+            running_sum_W2 = total_sum - running_sum_W1
+            running_count_W2 = total_count - running_count_W1
+            mu_W2 = running_sum_W2 / running_count_W2
 
-        for split in range(1, len(sliding_window)):
-            W1 = sliding_window[:split]
-            W2 = sliding_window[split:]
-
-            mu_W1 = sum(W1) / len(W1)
-            mu_W2 = sum(W2) / len(W2)
             diff = abs(mu_W1 - mu_W2)
             if diff > max_diff:
-                best_split = split
+                max_diff = diff
 
         indicators.append(max_diff)
-     
-     # Compute AUC
-     auc = roc_auc_score(y, indicators)
-     return auc 
+
+    # Compute AUC
+    auc = roc_auc_score(y, indicators)
+    return auc
     
 
 
@@ -61,7 +67,7 @@ def compute_kswin_auc(y, score, reference_window):
     p_values = []
     test_size = 100
     test_window = deque([], maxlen=test_size)
-    for x_t in data_stream:
+    for x_t in score:
         test_window.append(x_t)
         # Compute p-value
         if len(test_window) < test_size:
@@ -72,7 +78,7 @@ def compute_kswin_auc(y, score, reference_window):
         p_values.append(p)
 
     p_values = np.array(p_values)
-    auc = roc_auc_score(y, p_values)
+    auc = roc_auc_score(y, 1-p_values)
     return auc 
 
 
