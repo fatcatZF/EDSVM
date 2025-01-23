@@ -1,5 +1,9 @@
 import numpy as np 
 
+from collections import deque
+
+from scipy.stats import ks_2samp
+
 from sklearn.metrics import roc_auc_score
 
 from stable_baselines3 import PPO, SAC, DQN 
@@ -53,8 +57,29 @@ def compute_adwin_auc(y, score):
     
 
 
-def compute_kswin_auc(y, score):
-    pass
+def compute_kswin_auc(y, score, reference_window):
+    p_values = []
+    test_size = 100
+    test_window = deque([], maxlen=test_size)
+    for x_t in data_stream:
+        test_window.append(x_t)
+        # Compute p-value
+        if len(test_window) < test_size:
+            p = 1.
+        else:
+            _, p = ks_2samp(reference_window, test_window)
+        
+        p_values.append(p)
+
+    p_values = np.array(p_values)
+    auc = roc_auc_score(y, p_values)
+    return auc 
+
+
+
+
+
+
 
 def main():
     parser = argparse.ArgumentParser()
