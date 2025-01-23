@@ -67,7 +67,7 @@ def compute_kswin_auc(y, score, reference_window):
         if len(test_window) < test_size:
             p = 1.
         else:
-            _, p = ks_2samp(reference_window, test_window)
+            p = ks_2samp(reference_window, test_window).pvalue 
         
         p_values.append(p)
 
@@ -152,6 +152,14 @@ def main():
     # Run the evaluations
     auc_semantic_values = []
     auc_noise_values = []
+
+    auc_semantic_values_ph = []
+    auc_semantic_values_ad = []
+    auc_semantic_values_ks = []
+
+    auc_noise_values_ph = []
+    auc_noise_values_ad = []
+    auc_noise_values_ks = []
     
     ph_delays_semantic = []
     ph_fas_semantic = []
@@ -219,6 +227,7 @@ def main():
                     obs_t, _ = env_current.reset() 
             
             scores_semantic = np.array(scores_semantic) 
+            
 
 
             # Noisy Drift (env1, env3)
@@ -260,6 +269,24 @@ def main():
 
             auc_semantic = roc_auc_score(y_semantic, scores_semantic)
             auc_noise = roc_auc_score(y_noise, scores_noise)
+
+            auc_semantic_ph = compute_ph_auc(y_semantic, scores_semantic)
+            auc_semantic_ad = compute_adwin_auc(y_semantic, scores_semantic)
+            auc_semantic_ks = compute_kswin_auc(y_semantic, scores_semantic, 
+                                scores_validation)
+
+            auc_semantic_values_ph.append(auc_semantic_ph)
+            auc_semantic_values_ad.append(auc_semantic_ad)
+            auc_semantic_values_ks.append(auc_semantic_ks)
+
+            auc_noise_ph = compute_ph_auc(y_noise, scores_noise)
+            auc_noise_ad = compute_adwin_auc(y_noise, scores_noise)
+            auc_noise_ks = compute_kswin_auc(y_noise, scores_noise,
+                             scores_validation)
+            
+            auc_noise_values_ph.append(auc_noise_ph)
+            auc_noise_values_ad.append(auc_noise_ad)
+            auc_noise_values_ks.append(auc_noise_ks)
 
             auc_semantic_values.append(auc_semantic)
             auc_noise_values.append(auc_noise)
@@ -378,14 +405,28 @@ def main():
 
 
 
-            result[f"edsvm_{i}"][f"exp_{j}"] = {"scores_semantic":scores_semantic.tolist(),
-                                                     "auc_semantic":auc_semantic,
-                                                     "scores_noise":scores_noise.tolist(),
-                                                     "auc_noise":auc_noise}
+            result[f"edsvm_{i}"][f"exp_{j}"] = {"scores_validation": scores_validation.tolist(),
+                                                "scores_semantic":scores_semantic.tolist(),
+                                                "auc_semantic":auc_semantic,
+                                                "auc_semantic_ph": auc_semantic_ph,
+                                                "auc_semantic_ad": auc_semantic_ad,
+                                                "auc_semantic_ks": auc_semantic_ks,
+                                                "scores_noise":scores_noise.tolist(),
+                                                "auc_noise":auc_noise,
+                                                 "auc_noise_ph":auc_noise_ph,
+                                                 "auc_noise_ad": auc_noise_ad,
+                                                 "auc_noise_ks": auc_noise_ks}
             
     
     result["auc_semantic_mean"] = np.mean(auc_semantic_values)
+    result["auc_semantic_mean_ph"] = np.mean(auc_semantic_values_ph)
+    result["auc_semantic_mean_ad"] = np.mean(auc_semantic_values_ad)
+    result["auc_semantic_mean_ks"] = np.mean(auc_semantic_values_ks)
+
     result["auc_noise_mean"] = np.mean(auc_noise_values)
+    result["auc_noise_mean_ph"] = np.mean(auc_noise_values_ph)
+    result["auc_noise_mean_ad"] = np.mean(auc_noise_values_ad)
+    result["auc_noise_mean_ks"] = np.mean(auc_noise_values_ks)
 
     result["ph_delays_semantic_mean"] = np.mean(ph_delays_semantic)
     result["ph_delays_noise_mean"] = np.mean(ph_delays_noise)
