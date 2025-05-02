@@ -1,1 +1,1 @@
-{"n_neighbors": 49, "contamination": 0.010198140574998373, "metric": "minkowski"}
+{"n_neighbors": 10, "contamination": 0.04305963686488333, "metric": "manhattan"}
