@@ -1,1 +1,1 @@
-{"n_neighbors": 39, "contamination": 0.010155320884480967, "metric": "manhattan"}
+{"n_neighbors": 5, "contamination": 0.010680628094307539, "metric": "euclidean"}
